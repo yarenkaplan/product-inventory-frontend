@@ -265,6 +265,8 @@ function App() {
     //products
     const [productErrors, setProductErrors] = useState({});
     const [products, setProducts] = useState([]);
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [isFiltered, setIsFiltered] = useState(false);
     const [newProduct, setNewProduct] = useState({
         name: "",
         description: "",
@@ -281,6 +283,11 @@ function App() {
         status: "",
         categoryId: "",
     });
+    const [searchName, setSearchName] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState("");
+    const [selectedStatus, setSelectedStatus] = useState("");
+    const [minPrice, setMinPrice] = useState("");
+    const [maxPrice, setMaxPrice] = useState("");
     const handleEditProduct = (product) => {
         setEditProductId(product.id);
 
@@ -381,6 +388,51 @@ function App() {
         }
     };
 
+    const fetchFilteredProducts = async () => {
+        const token = localStorage.getItem("token");
+
+        //creating search params url
+        const params = new URLSearchParams();
+        if (searchName.trim()) {
+            params.append("name", searchName.trim());
+        }
+        if (selectedCategory) {
+            params.append("categoryId", selectedCategory);
+        }
+        if (selectedStatus) {
+            params.append("status", selectedStatus);
+        }
+        if (minPrice) {
+            params.append("minPrice", minPrice);
+        }
+        if (maxPrice) {
+            params.append("maxPrice", maxPrice);
+        }
+
+        const response = await fetch(`http://localhost:8080/api/products/filterProducts?${params.toString()}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                }
+            })
+
+        if (response.ok) {
+            const data = await response.json();
+            setFilteredProducts(data);
+            setIsFiltered(true);
+        }
+    }
+    const clearProductFilters = () => {
+        setSearchName("");
+        setSelectedCategory("");
+        setSelectedStatus("");
+        setMinPrice("");
+        setMaxPrice("");
+        setFilteredProducts([]);
+        setIsFiltered(false);
+    }
+
+
     const formatPrice = (price) => {
         if (price == null) {
             return "-";
@@ -417,7 +469,6 @@ function App() {
 
         fetchCurrentUser();
     }, [isLoggedIn]);
-
 
     //product
     useEffect(() => {
@@ -473,7 +524,6 @@ function App() {
 
             if (response.ok) {
                 const data = await response.json();
-                console.log("Users:", data);
                 setUsers(data.content); //for page response
             }
         };
@@ -530,6 +580,8 @@ function App() {
     }, [isLoggedIn]);
 
     if (isLoggedIn) {
+        const displayedProducts = isFiltered ? filteredProducts : products;
+
         return (
             <div className="dashboard">
                 <header className="topbar">
@@ -675,6 +727,92 @@ function App() {
 
                                     </div>
                                 )}
+                                <div className="product-filters">
+                                    <h3>Filter Products</h3>
+                                    <div className="filter-fields">
+                                        <div className="filter-field">
+                                            <label htmlFor="searchName">Search Product</label>
+                                            <input
+                                                id="searchName"
+                                                type="text"
+                                                className="form-input"
+                                                placeholder="Search by name..."
+                                                value={searchName}
+                                                onChange={(e) => setSearchName(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="filter-field">
+                                            <label htmlFor="filterCategory">Category</label>
+                                            <select
+                                                id="filterCategory"
+                                                className="form-input"
+                                                value={selectedCategory}
+                                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                            >
+                                                <option value="">All Categories</option>
+
+                                                {categories.map((category) => (
+                                                    <option key={category.id} value={category.id}>
+                                                        {category.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="filter-field">
+                                            <label htmlFor="filterStatus">Status</label>
+                                            <select
+                                                id="filterStatus"
+                                                className="form-input"
+                                                value={selectedStatus}
+                                                onChange={(e) => setSelectedStatus(e.target.value)}
+                                            >
+                                                <option value="">All Statuses</option>
+
+                                                {productStatuses.map((status) => (
+                                                    <option key={status} value={status}>
+                                                        {status}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="filter-field">
+                                            <label htmlFor="minPrice">Min Price</label>
+                                            <input
+                                                id="minPrice"
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                className="form-input"
+                                                placeholder="Min price"
+                                                value={minPrice}
+                                                onChange={(e) => setMinPrice(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="filter-field">
+                                            <label htmlFor="maxPrice">Max Price</label>
+                                            <input
+                                                id="maxPrice"
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                className="form-input"
+                                                placeholder="Max price"
+                                                value={maxPrice}
+                                                onChange={(e) => setMaxPrice(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="filter-actions">
+                                        <button type="button" className="apply-filter-btn" onClick={fetchFilteredProducts}>
+                                            Apply Filters
+                                        </button>
+
+                                        <button type="button" className="clear-filter-btn" onClick={clearProductFilters}>
+                                            Clear Filters
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <div className="table-container">
                                     <table>
                                         <thead>
@@ -694,134 +832,145 @@ function App() {
                                         </tr>
                                         </thead>
                                         <tbody>
-                                        {products?.map((product) => (
-                                            <tr key={product.id}>
-                                                {isAdmin && (
-                                                    <td>{editProductId === product.id ? (
-                                                        <>
-                                                            <button onClick={handleSaveProduct}>
-                                                                Save
-                                                            </button>
-                                                            <button onClick={() => setEditProductId(null)}>
-                                                                Cancel
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <button onClick={() => handleEditProduct(product)}>
-                                                            &#x270E;
-                                                        </button>
-                                                    )} </td>
-                                                )}
-                                                <td>{product.id}</td>
-                                                <td>{editProductId === product.id ? (
-                                                    <input
-                                                        value={updateProduct.name}
-                                                        onChange={(e) =>
-                                                            setUpdateProduct({
-                                                                ...updateProduct,
-                                                                name: e.target.value
-                                                            })
-                                                        }
-                                                    />
-                                                ) : (
-                                                    product.name
-                                                )}</td>
-                                                <td>{editProductId === product.id ? (
-                                                    <input
-                                                        value={updateProduct.description}
-                                                        onChange={(e) =>
-                                                            setUpdateProduct({
-                                                                ...updateProduct,
-                                                                description: e.target.value
-                                                            })
-                                                        }
-                                                    />
-                                                ) : (
-                                                    product.description
-                                                )}</td>
-                                                <td>{editProductId === product.id ? (
-                                                    <input
-                                                        value={updateProduct.price}
-                                                        onChange={(e) =>
-                                                            setUpdateProduct({
-                                                                ...updateProduct,
-                                                                price: e.target.value
-                                                            })
-                                                        }
-                                                    />
-                                                ) : (
-                                                    formatPrice(product.price)
-                                                )}</td>
-                                                <td>{editProductId === product.id ? (
-                                                    <input
-                                                        value={updateProduct.stock}
-                                                        onChange={(e) =>
-                                                            setUpdateProduct({
-                                                                ...updateProduct,
-                                                                stock: e.target.value
-                                                            })
-                                                        }
-                                                    />
-                                                ) : (
-                                                    product.stock
-                                                )}</td>
-                                                <td>
-                                                    {editProductId === product.id ? (
-                                                        <select
-                                                            className="form-input"
-                                                            value={updateProduct.status}
-                                                            onChange={(e) =>
-                                                                setUpdateProduct({
-                                                                    ...updateProduct,
-                                                                    status: e.target.value
-                                                                })
-                                                            }
-                                                        >
-                                                            {productStatuses.map((status) => (
-                                                                <option key={status} value={status}>
-                                                                    {status}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    ) : (
-                                                        product.status ?? "-"
-                                                    )}
+                                        {displayedProducts.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={isAdmin ? 9 : 7}>
+                                                    {isFiltered
+                                                        ? "No products found matching your filters."
+                                                        : "No products available."}
                                                 </td>
-                                                <td>
-                                                    {editProductId === product.id ? (
-                                                        <select
-                                                            className="form-input"
-                                                            value={updateProduct.categoryId}
-                                                            onChange={(e) =>
-                                                                setUpdateProduct({
-                                                                    ...updateProduct,
-                                                                    categoryId: Number(e.target.value)
-                                                                })
-                                                            }
-                                                        >
-                                                            <option value="">Select category</option>
-
-                                                            {categories.map((category) => (
-                                                                <option key={category.id} value={category.id}>
-                                                                    {category.name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    ) : (
-                                                        categories.find((category) => category.id === product.categoryId)?.name ?? "-"
-                                                    )}
-                                                </td>
-                                                {isAdmin && (
-                                                    <td>
-                                                        <button onClick={() => {
-                                                            if (window.confirm("Are you sure you want to delete this product?")) {
-                                                                handleDeleteProduct(product.id);
-                                                            }
-                                                        }}>Delete
-                                                        </button>
-                                                    </td>)}
                                             </tr>
-                                        ))}
+                                        ) : (Array.isArray(displayedProducts) &&
+                                            displayedProducts?.map((product) => (
+                                                <tr key={product.id}>
+                                                    {isAdmin && (
+                                                        <td>{editProductId === product.id ? (
+                                                            <>
+                                                                <button onClick={handleSaveProduct}>
+                                                                    Save
+                                                                </button>
+                                                                <button onClick={() => setEditProductId(null)}>
+                                                                    Cancel
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <button onClick={() => handleEditProduct(product)}>
+                                                                &#x270E;
+                                                            </button>
+                                                        )} </td>
+                                                    )}
+                                                    <td>{product.id}</td>
+                                                    <td>{editProductId === product.id ? (
+                                                        <input
+                                                            value={updateProduct.name}
+                                                            onChange={(e) =>
+                                                                setUpdateProduct({
+                                                                    ...updateProduct,
+                                                                    name: e.target.value
+                                                                })
+                                                            }
+                                                        />
+                                                    ) : (
+                                                        product.name
+                                                    )}</td>
+                                                    <td>{editProductId === product.id ? (
+                                                        <input
+                                                            value={updateProduct.description}
+                                                            onChange={(e) =>
+                                                                setUpdateProduct({
+                                                                    ...updateProduct,
+                                                                    description: e.target.value
+                                                                })
+                                                            }
+                                                        />
+                                                    ) : (
+                                                        product.description
+                                                    )}</td>
+                                                    <td>{editProductId === product.id ? (
+                                                        <input
+                                                            value={updateProduct.price}
+                                                            onChange={(e) =>
+                                                                setUpdateProduct({
+                                                                    ...updateProduct,
+                                                                    price: e.target.value
+                                                                })
+                                                            }
+                                                        />
+                                                    ) : (
+                                                        formatPrice(product.price)
+                                                    )}</td>
+                                                    <td>{editProductId === product.id ? (
+                                                        <input
+                                                            value={updateProduct.stock}
+                                                            onChange={(e) =>
+                                                                setUpdateProduct({
+                                                                    ...updateProduct,
+                                                                    stock: e.target.value
+                                                                })
+                                                            }
+                                                        />
+                                                    ) : (
+                                                        product.stock
+                                                    )}</td>
+                                                    <td>
+                                                        {editProductId === product.id ? (
+                                                            <select
+                                                                className="form-input"
+                                                                value={updateProduct.status}
+                                                                onChange={(e) =>
+                                                                    setUpdateProduct({
+                                                                        ...updateProduct,
+                                                                        status: e.target.value
+                                                                    })
+                                                                }
+                                                            >
+                                                                {productStatuses.map((status) => (
+                                                                    <option key={status} value={status}>
+                                                                        {status}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        ) : (
+                                                            product.status ?? "-"
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        {editProductId === product.id ? (
+                                                            <select
+                                                                className="form-input"
+                                                                value={updateProduct.categoryId}
+                                                                onChange={(e) =>
+                                                                    setUpdateProduct({
+                                                                        ...updateProduct,
+                                                                        categoryId: Number(e.target.value)
+                                                                    })
+                                                                }
+                                                            >
+                                                                <option value="">Select category</option>
+
+                                                                {categories.map((category) => (
+                                                                    <option key={category.id} value={category.id}>
+                                                                        {category.name}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        ) : (
+                                                            categories.find((category) => category.id === product.categoryId)?.name ?? "-"
+                                                        )}
+                                                    </td>
+                                                    {isAdmin && (
+                                                        <td>
+                                                            <button onClick={() => {
+                                                                if (window.confirm("Are you sure you want to delete this product?")) {
+                                                                    handleDeleteProduct(product.id);
+                                                                }
+                                                            }}>Delete
+                                                            </button>
+                                                        </td>)}
+                                                </tr>
+                                            ))
+                                        )
+                                        }
                                         </tbody>
                                     </table>
                                 </div>
